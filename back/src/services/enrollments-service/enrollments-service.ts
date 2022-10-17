@@ -10,7 +10,7 @@ export async function getOneWithAddressByUserId(userId: number) {
 
   if (!enrollmentWithAddress) return undefined;
 
-  const firstAddress = enrollmentWithAddress.Address[0];
+  const firstAddress = enrollmentWithAddress.Address;
   const address = firstAddress
     ? {
         id: firstAddress.id,
@@ -41,20 +41,19 @@ export async function createOrUpdateEnrollmentWithAddress(params: CreateEnrollme
     birthday: params.birthday,
     phone: params.phone,
     userId: params.userId,
-    Address: {
-      create: {
-        cep: params.address.cep,
-        street: params.address.street,
-        city: params.address.city,
-        number: params.address.number,
-        state: params.address.state,
-        neighborhood: params.address.neighborhood,
-        ...(params.address.addressDetail && { addressDetail: params.address.addressDetail }),
-      },
-    },
   };
 
-  await prisma.enrollment.upsert({
+  const createOrUpdateAddress = {
+    cep: params.address.cep,
+    street: params.address.street,
+    city: params.address.city,
+    number: params.address.number,
+    state: params.address.state,
+    neighborhood: params.address.neighborhood,
+    ...(params.address.addressDetail && { addressDetail: params.address.addressDetail }),
+  };
+
+  const result = await prisma.enrollment.upsert({
     where: {
       userId: params.userId,
     },
@@ -63,6 +62,14 @@ export async function createOrUpdateEnrollmentWithAddress(params: CreateEnrollme
     include: {
       Address: true,
     },
+  });
+
+  await prisma.address.upsert({
+    where: {
+      enrollmentId: result.id,
+    },
+    create: { ...createOrUpdateAddress, enrollmentId: result.id },
+    update: createOrUpdateAddress,
   });
 }
 
